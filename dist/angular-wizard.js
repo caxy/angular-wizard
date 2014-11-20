@@ -1,6 +1,6 @@
 /**
  * Easy to use Wizard library for AngularJS
- * @version v0.4.0 - 2014-07-10 * @link https://github.com/mgonto/angular-wizard
+ * @version v0.4.0 - 2014-04-25 * @link https://github.com/mgonto/angular-wizard
  * @author Martin Gontovnikas <martin@gon.to>
  * @license MIT License, http://www.opensource.org/licenses/MIT
  */
@@ -17,7 +17,7 @@ angular.module("wizard.html", []).run(["$templateCache", function($templateCache
     "<div>\n" +
     "    <div class=\"steps\" ng-transclude></div>\n" +
     "    <ul class=\"steps-indicator steps-{{steps.length}}\" ng-if=\"!hideIndicators\">\n" +
-    "      <li ng-class=\"{default: !step.completed && !step.selected, current: step.selected && !step.completed, done: step.completed && !step.selected, editing: step.selected && step.completed}\" ng-repeat=\"step in steps\">\n" +
+    "      <li ng-class=\"{default: !step.completed && !step.selected && !step.reached, current: step.selected && !step.completed, done: step.completed && !step.selected, reached: step.reached && !step.selected, editing: step.selected && step.completed}\" ng-repeat=\"step in steps\">\n" +
     "        <a ng-click=\"goTo(step)\">{{step.title || step.wzTitle}}</a>\n" +
     "      </li>\n" +
     "    </ul>\n" +
@@ -34,7 +34,9 @@ angular.module('mgo-angular-wizard').directive('wzStep', function() {
         transclude: true,
         scope: {
             wzTitle: '@',
-            title: '@'
+            title: '@',
+            lastvisited: '@',
+            stepindex: '@'
         },
         require: '^wizard',
         templateUrl: function(element, attributes) {
@@ -42,9 +44,10 @@ angular.module('mgo-angular-wizard').directive('wzStep', function() {
         },
         link: function($scope, $element, $attrs, wizard) {
             $scope.title = $scope.title || $scope.wzTitle;
-            wizard.addStep($scope);
+            wizard.setLastVisited($scope.lastvisited);
+            wizard.addStep($scope, $scope.stepindex);
         }
-    };
+    }
 });
 
 angular.module('mgo-angular-wizard').directive('wizard', function() {
@@ -62,7 +65,7 @@ angular.module('mgo-angular-wizard').directive('wizard', function() {
         templateUrl: function(element, attributes) {
           return attributes.template || "wizard.html";
         },
-        controller: ['$scope', '$element', 'WizardHandler', function($scope, $element, WizardHandler) {
+        controller: ['$scope', '$rootScope', '$element', 'WizardHandler', function($scope, $rootScope, $element, WizardHandler) {
 
             WizardHandler.addWizard($scope.name || WizardHandler.defaultName, this);
             $scope.$on('$destroy', function() {
@@ -70,6 +73,12 @@ angular.module('mgo-angular-wizard').directive('wizard', function() {
             });
 
             $scope.steps = [];
+
+            $scope.highestReachedStep = 0;
+            $scope.lastVisitedStep = '';
+            this.setLastVisited = function(laststep) {
+                $scope.lastVisitedStep = laststep;
+            };
 
             $scope.$watch('currentStep', function(step) {
                 if (!step) return;
@@ -91,26 +100,49 @@ angular.module('mgo-angular-wizard').directive('wizard', function() {
                 }
             }, true);
 
-            this.addStep = function(step) {
+
+
+            this.addStep = function(step, stepIndex) {
+
+                if ($scope.lastVisitedStep) {
+                    if (stepIndex < $scope.lastVisitedStep) {
+                        step.completed = true;
+                        step.selected = false;
+                    }
+                    else if (stepIndex === $scope.lastVisitedStep) {
+                        step.selected = true;
+                    }
+                }
+
                 $scope.steps.push(step);
                 if ($scope.steps.length === 1) {
                     $scope.goTo($scope.steps[0]);
                 }
             };
 
+
             $scope.goTo = function(step) {
                 unselectAll();
                 $scope.selectedStep = step;
+
                 if (!_.isUndefined($scope.currentStep)) {
                     $scope.currentStep = step.title || step.wzTitle;
                 }
+
                 step.selected = true;
-                $scope.$emit('wizard:stepChanged', {step: step, index: _.indexOf($scope.steps , step)});
+                $scope.lastVisitedStep = step.stepindex;
+
+                if (step.stepindex > $scope.highestReachedStep) {
+                    $scope.highestReachedStep = step.stepindex;
+                    $scope.steps[step.stepindex].reached = true;
+
+                }
+
+                // update lastVisitedStep back at the service with new index
+                $rootScope.$emit('newLastVisitedStep', {stepindex: step.stepindex});
+
             };
-            
-            $scope.currentStepNumber = function() {
-                return _.indexOf($scope.steps , $scope.selectedStep) + 1;
-            }
+
 
             function unselectAll() {
                 _.each($scope.steps, function (step) {
@@ -119,6 +151,8 @@ angular.module('mgo-angular-wizard').directive('wizard', function() {
                 $scope.selectedStep = null;
             }
 
+
+            // on continue btn click
             this.next = function(draft) {
                 var index = _.indexOf($scope.steps , $scope.selectedStep);
                 if (!draft) {
@@ -131,21 +165,27 @@ angular.module('mgo-angular-wizard').directive('wizard', function() {
                 }
             };
 
-            this.goTo = function(step) {
+
+            // coming straight here, if there was a stored 'last vistied' value
+            this.goTo = function(stepVar) {
                 var stepTo;
-                if (_.isNumber(step)) {
-                    stepTo = $scope.steps[step];
+                if (_.isNumber(parseInt(stepVar))) {
+                    stepTo = $scope.steps[stepVar];
+                    $scope.lastVisitedStep = stepVar;
                 } else {
-                    stepTo = _.findWhere($scope.steps, {title: step});
+                    stepTo = _.findWhere($scope.steps, {title: stepVar});
                 }
                 $scope.goTo(stepTo);
             };
+
 
             this.finish = function() {
                 if ($scope.onFinish) {
                     $scope.onFinish();
                 }
             };
+
+
 
             this.cancel = this.previous = function() {
                 var index = _.indexOf($scope.steps , $scope.selectedStep);
