@@ -18,7 +18,7 @@ angular.module("wizard.html", []).run(["$templateCache", function($templateCache
     "    <div class=\"steps\" ng-transclude></div>\n" +
     "    <ul class=\"steps-indicator steps-{{steps.length+1}}\" ng-if=\"!hideIndicators\">\n" +
     "      <li class=\"done\">\n" +
-    "        <a href=\"/#/start\">Start</a>\n" +
+    "        <a ng-click=\"goTo(0)\" href=\"/#/start\">About You</a>\n" +
     "      </li>\n" +
     "      <li ng-class=\"{default: !step.completed && !step.selected && !step.reached, current: step.selected && !step.completed, done: step.completed && !step.selected, reached: step.reached && !step.selected, editing: step.selected && step.completed}\" ng-repeat=\"step in steps\">\n" +
     "        <a ng-click=\"goTo(step)\">{{step.title || step.wzTitle}}</a>\n" +
@@ -125,24 +125,30 @@ angular.module('mgo-angular-wizard').directive('wizard', function() {
 
 
             $scope.goTo = function(step) {
-                unselectAll();
-                $scope.selectedStep = step;
-
-                if (!_.isUndefined($scope.currentStep)) {
-                    $scope.currentStep = step.title || step.wzTitle;
+                if (step === 0) {
+                  // reset steps
+                  $rootScope.$emit('newLastVisitedStep', {stepindex: 0});
                 }
+                else {
+                  unselectAll();
+                  $scope.selectedStep = step;
 
-                step.selected = true;
-                $scope.lastVisitedStep = step.stepindex;
+                  if (!_.isUndefined($scope.currentStep)) {
+                    $scope.currentStep = step.title || step.wzTitle;
+                  }
 
-                if (step.stepindex > $scope.highestReachedStep) {
+                  step.selected = true;
+                  $scope.lastVisitedStep = step.stepindex;
+
+                  if (step.stepindex > $scope.highestReachedStep) {
                     $scope.highestReachedStep = step.stepindex;
                     $scope.steps[step.stepindex].reached = true;
 
-                }
+                  }
 
-                // update lastVisitedStep back at the service with new index
-                $rootScope.$emit('newLastVisitedStep', {stepindex: step.stepindex});
+                  // update lastVisitedStep back at the service with new index
+                  $rootScope.$emit('newLastVisitedStep', {stepindex: step.stepindex});
+                }
 
             };
 
