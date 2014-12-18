@@ -20,13 +20,14 @@ angular.module("wizard.html", []).run(["$templateCache", function($templateCache
     "      <li class=\"done\">\n" +
     "        <a ng-click=\"goTo(0)\" href=\"/#/start\">About You</a>\n" +
     "      </li>\n" +
-    "      <li ng-class=\"{default: !step.completed && !step.selected && !step.reached, current: step.selected && !step.completed, done: step.completed && !step.selected, reached: step.reached && !step.selected, editing: step.selected && step.completed}\" ng-repeat=\"step in steps\">\n" +
+    "      <li ng-class=\"{ 'toggle-{{step.toggle}}': step.disabled, disabled: step.disabled, default: !step.completed && !step.selected && !step.reached, current: step.selected && !step.completed, done: step.completed && !step.selected, reached: step.reached && !step.selected, editing: step.selected && step.completed}\" ng-repeat=\"step in steps\">\n" +
     "        <a ng-click=\"goTo(step)\">{{step.title || step.wzTitle}}</a>\n" +
     "      </li>\n" +
     "    </ul>\n" +
     "</div>\n" +
     "");
 }]);
+
 
 angular.module('mgo-angular-wizard', ['templates-angularwizard']);
 
@@ -39,6 +40,7 @@ angular.module('mgo-angular-wizard').directive('wzStep', function() {
             wzTitle: '@',
             title: '@',
             lastvisited: '@',
+            toggle: '@',
             stepindex: '@'
         },
         require: '^wizard',
@@ -48,7 +50,7 @@ angular.module('mgo-angular-wizard').directive('wzStep', function() {
         link: function($scope, $element, $attrs, wizard) {
             $scope.title = $scope.title || $scope.wzTitle;
             wizard.setLastVisited($scope.lastvisited);
-            wizard.addStep($scope, $scope.stepindex);
+            wizard.addStep($scope, $scope.stepindex, $scope.toggle);
         }
     }
 });
@@ -71,9 +73,24 @@ angular.module('mgo-angular-wizard').directive('wizard', function() {
         controller: ['$scope', '$rootScope', '$element', 'WizardHandler', function($scope, $rootScope, $element, WizardHandler) {
 
             WizardHandler.addWizard($scope.name || WizardHandler.defaultName, this);
+
+            // EVENT HANDLERS
             $scope.$on('$destroy', function() {
                 WizardHandler.removeWizard($scope.name || WizardHandler.defaultName);
             });
+
+
+            $rootScope.$on('toggleMenuItem', function(e, menuToggleType) {
+              switch (menuToggleType.toggle) {
+                case 'on':
+                  angular.element('.toggle-' + menuToggleType.item).removeClass('disabled');
+                  break;
+
+                default:
+                  angular.element('.toggle-' + menuToggleType.item).addClass('disabled');
+              }
+            });
+
 
             $scope.steps = [];
 
@@ -105,7 +122,12 @@ angular.module('mgo-angular-wizard').directive('wizard', function() {
 
 
 
-            this.addStep = function(step, stepIndex) {
+            this.addStep = function(step, stepIndex, toggle) {
+
+                if (toggle) {
+                  step.toggle = toggle;
+                  step.disabled = true;
+                }
 
                 if ($scope.lastVisitedStep) {
                     if (stepIndex < $scope.lastVisitedStep) {
