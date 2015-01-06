@@ -18,10 +18,10 @@ angular.module("wizard.html", []).run(["$templateCache", function($templateCache
     "    <div class=\"steps\" ng-transclude></div>\n" +
     "    <ul class=\"steps-indicator steps-{{steps.length+1}}\" ng-if=\"!hideIndicators\">\n" +
     "      <li class=\"done\">\n" +
-    "        <a ng-click=\"goTo(0)\" href=\"/#/start\">About You</a>\n" +
+    "        <a class=\"step-info\" ng-click=\"goTo(0)\" href=\"/#/start\">About You</a>\n" +
     "      </li>\n" +
-    "      <li ng-class=\"{ 'toggle-{{step.toggle}}': step.disabled, disabled: step.disabled, default: !step.completed && !step.selected && !step.reached, current: step.selected && !step.completed, done: step.completed && !step.selected, reached: step.reached && !step.selected, editing: step.selected && step.completed}\" ng-repeat=\"step in steps\">\n" +
-    "        <a ng-click=\"goTo(step)\">{{step.title || step.wzTitle}}</a>\n" +
+    "      <li class=\"toggle-{{step.toggle}}\" ng-class=\"{disabled: step.disabled, default: !step.completed && !step.selected && !step.reached, current: step.selected && !step.completed, done: step.completed && !step.selected, reached: step.reached && !step.selected, editing: step.selected && step.completed}\" ng-repeat=\"step in steps\">\n" +
+    "        <a class=\"step-{{step.id}}\" ng-click=\"goTo(step)\">{{step.title || step.wzTitle}}</a>\n" +
     "      </li>\n" +
     "    </ul>\n" +
     "</div>\n" +
@@ -38,9 +38,10 @@ angular.module('mgo-angular-wizard').directive('wzStep', function() {
         transclude: true,
         scope: {
             wzTitle: '@',
+            id: '@',
             title: '@',
             lastvisited: '@',
-            toggle: '@',
+            toggleId: '@',
             stepindex: '@'
         },
         require: '^wizard',
@@ -50,7 +51,7 @@ angular.module('mgo-angular-wizard').directive('wzStep', function() {
         link: function($scope, $element, $attrs, wizard) {
             $scope.title = $scope.title || $scope.wzTitle;
             wizard.setLastVisited($scope.lastvisited);
-            wizard.addStep($scope, $scope.stepindex, $scope.toggle);
+            wizard.addStep($scope, $scope.stepindex, $scope.toggleId, false);
         }
     }
 });
@@ -74,20 +75,26 @@ angular.module('mgo-angular-wizard').directive('wizard', function() {
 
             WizardHandler.addWizard($scope.name || WizardHandler.defaultName, this);
 
+
             // EVENT HANDLERS
             $scope.$on('$destroy', function() {
                 WizardHandler.removeWizard($scope.name || WizardHandler.defaultName);
             });
 
-
             $rootScope.$on('toggleMenuItem', function(e, menuToggleType) {
+              var element = angular.element('.toggle-' + menuToggleType.item);
+
               switch (menuToggleType.toggle) {
                 case 'on':
-                  angular.element('.toggle-' + menuToggleType.item).removeClass('disabled');
+                  $scope.steps[menuToggleType.index].disabled = false;
+                  element.removeClass('disabled');
                   break;
 
                 default:
-                  angular.element('.toggle-' + menuToggleType.item).addClass('disabled');
+                  $scope.steps[menuToggleType.index].disabled = true;
+                  if (!element.hasClass('reached')) {
+                    element.addClass('disabled');
+                  }
               }
             });
 
@@ -121,12 +128,10 @@ angular.module('mgo-angular-wizard').directive('wizard', function() {
             }, true);
 
 
-
-            this.addStep = function(step, stepIndex, toggle) {
-
-                if (toggle) {
-                  step.toggle = toggle;
-                  step.disabled = true;
+            this.addStep = function(step, stepIndex, toggleId, disabled) {
+                if (toggleId) {
+                  step.toggle = toggleId;
+                  step.disabled = disabled;
                 }
 
                 if ($scope.lastVisitedStep) {
@@ -147,6 +152,19 @@ angular.module('mgo-angular-wizard').directive('wizard', function() {
 
 
             $scope.goTo = function(step) {
+
+              // skip past disabled steps
+              if (step.disabled) {
+                // add 'done' class to the menu item so the progress bar is wide enough
+                $scope.steps[step.stepindex].done = true;
+
+                angular.element('.toggle-' + $scope.steps[step.stepindex].title.toLowerCase()).addClass('reached');
+                angular.element('.toggle-' + $scope.steps[step.stepindex].title.toLowerCase()).removeClass('default');
+
+                // skip past disabled steps
+                $scope.goTo($scope.steps[parseInt(step.stepindex) + 1]);
+              }
+              else {
                 if (step === 0) {
                   // reset steps
                   $rootScope.$emit('newLastVisitedStep', {stepindex: 0});
@@ -161,16 +179,16 @@ angular.module('mgo-angular-wizard').directive('wizard', function() {
 
                   step.selected = true;
                   $scope.lastVisitedStep = step.stepindex;
+                  $scope.steps[step.stepindex].reached = true;
 
                   if (step.stepindex > $scope.highestReachedStep) {
                     $scope.highestReachedStep = step.stepindex;
-                    $scope.steps[step.stepindex].reached = true;
-
                   }
 
                   // update lastVisitedStep back at the service with new index
                   $rootScope.$emit('newLastVisitedStep', {stepindex: step.stepindex});
                 }
+              }
 
             };
 
@@ -215,7 +233,6 @@ angular.module('mgo-angular-wizard').directive('wizard', function() {
                     $scope.onFinish();
                 }
             };
-
 
 
             this.cancel = this.previous = function() {
