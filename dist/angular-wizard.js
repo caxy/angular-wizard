@@ -20,8 +20,8 @@ angular.module("wizard.html", []).run(["$templateCache", function($templateCache
       "      <li class=\"done\">\n" +
       "        <a class=\"step-info\" ng-click=\"goTo(0)\" href=\"/#/start\">About You</a>\n" +
       "      </li>\n" +
-      "      <li class=\"toggle-{{step.toggle}}\" ng-class=\"{disabled: step.disabled==true, default: !step.completed && !step.selected && !step.reached, current: step.selected && !step.completed, done: step.completed && !step.selected, reached: step.reached && !step.selected, editing: step.selected && step.completed}\" ng-repeat=\"step in steps\">\n" +
-      "        <a class=\"step-{{step.id}}\" ng-click=\"goTo(step)\">{{step.title || step.wzTitle}}</a>\n" +
+      "      <li class=\"toggle-{{step.toggle}}\" ng-class=\"{disabled: step.disabled==true, default: !step.completed && !step.selected && !step.reached, current: (step.selected && !step.completed) && (steps.length-1!=$index), done: step.completed && !step.selected, reached: (step.reached && !step.selected) || (step.reached && steps.length-1==$index) , editing: step.selected && step.completed, final: steps.length-1==$index}\" ng-repeat=\"step in steps\">\n" +
+      "        <a class=\"step-{{step.id}}\" ng-click=\"goTo(step)\">{{step.wtitle}}</a>\n" +
       "      </li>\n" +
       "    </ul>\n" +
       "</div>\n" +
@@ -37,9 +37,8 @@ angular.module('mgo-angular-wizard').directive('wzStep', function() {
     replace: true,
     transclude: true,
     scope: {
-      wzTitle: '@',
       id: '@',
-      title: '@',
+      wtitle: '@',
       lastvisited: '@',
       toggleid: '@',
       stepindex: '@',
@@ -50,8 +49,6 @@ angular.module('mgo-angular-wizard').directive('wzStep', function() {
       return attributes.template || "step.html";
     },
     link: function($scope, $element, $attrs, wizard) {
-
-      $scope.title = $scope.title || $scope.wzTitle;
       wizard.setLastVisited($scope.lastvisited);
 
       var toggleId = $attrs.toggleid;
@@ -119,9 +116,9 @@ angular.module('mgo-angular-wizard').directive('wizard', function() {
 
       $scope.$watch('currentStep', function(step) {
         if (!step) return;
-        var stepTitle = $scope.selectedStep.title || $scope.selectedStep.wzTitle;
+        var stepTitle = $scope.selectedStep.wtitle;
         if ($scope.selectedStep && stepTitle !== $scope.currentStep) {
-          $scope.goTo(_.findWhere($scope.steps, {title: $scope.currentStep}));
+          $scope.goTo(_.findWhere($scope.steps, {wtitle: $scope.currentStep}));
         }
       });
 
@@ -139,7 +136,6 @@ angular.module('mgo-angular-wizard').directive('wizard', function() {
 
       // adding the steps to the wizard
       this.addStep = function(step, stepIndex, toggle, disabled) {
-
         if (toggle) {
           step.toggle = toggle;
           step.disabled = disabled;
@@ -182,8 +178,8 @@ angular.module('mgo-angular-wizard').directive('wizard', function() {
           if (step.disabled==true) {
             // add 'done' class to the menu item so the progress bar is wide enough
             $scope.steps[step.stepindex].done = true;
-            angular.element('.toggle-' + $scope.steps[step.stepindex].title.toLowerCase()).addClass('reached');
-            angular.element('.toggle-' + $scope.steps[step.stepindex].title.toLowerCase()).removeClass('default');
+            angular.element('.toggle-' + $scope.steps[step.stepindex].wtitle.toLowerCase()).addClass('reached');
+            angular.element('.toggle-' + $scope.steps[step.stepindex].wtitle.toLowerCase()).removeClass('default');
 
             // skip past disabled steps
             $scope.goTo($scope.steps[parseInt(step.stepindex) + 1]);
@@ -193,7 +189,7 @@ angular.module('mgo-angular-wizard').directive('wizard', function() {
             $scope.selectedStep = step;
 
             if (!_.isUndefined($scope.currentStep)) {
-              $scope.currentStep = step.title || step.wzTitle;
+              $scope.currentStep = step.wtitle;
             }
 
             step.selected = true;
@@ -246,7 +242,7 @@ angular.module('mgo-angular-wizard').directive('wizard', function() {
           stepTo = $scope.steps[stepVar];
           $scope.lastVisitedStep = stepVar;
         } else {
-          stepTo = _.findWhere($scope.steps, {title: stepVar});
+          stepTo = _.findWhere($scope.steps, {wtitle: stepVar});
         }
         $scope.goTo(stepTo);
       };
