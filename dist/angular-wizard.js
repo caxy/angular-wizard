@@ -201,7 +201,7 @@ angular.module('mgo-angular-wizard').directive('wizard', function() {
             }
 
             // update lastVisitedStep back at the service with new index
-            $rootScope.$emit('newLastVisitedStep', {stepindex: step.stepindex});
+            $rootScope.$emit('newLastVisitedStep', {stepindex: parseInt(step.stepindex, 10)});
           }
         }
 
