@@ -254,7 +254,14 @@ angular.module('mgo-angular-wizard').directive('wizard', function() {
         }
       };
 
-
+      this.cancel = this.previous = function() {
+        var index = _.indexOf($scope.steps , $scope.selectedStep);
+        if (index === 0) {
+          throw new Error("Can't go back. It's already in step 0");
+        } else {
+          $scope.goTo($scope.steps[index - 1]);
+        }
+      };
     }]
   };
 });
